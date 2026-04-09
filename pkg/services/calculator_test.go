@@ -307,6 +307,29 @@ func TestPackOfOneMillion(t *testing.T) {
 	assertPacksEqual(t, PacksCount{1: 1_000_000}, got)
 }
 
+// GCD direct tests
+func TestGCD(t *testing.T) {
+	tests := []struct {
+		a, b, expected int
+	}{
+		{12, 8, 4},
+		{8, 12, 4},
+		{7, 1, 1},
+		{1, 7, 1},
+		{100, 100, 100},
+		{0, 5, 5},
+		{5, 0, 5},
+		{17, 13, 1},
+		{1000000, 250, 250},
+	}
+	for _, tt := range tests {
+		got := gcd(tt.a, tt.b)
+		if got != tt.expected {
+			t.Errorf("gcd(%d, %d) = %d, want %d", tt.a, tt.b, got, tt.expected)
+		}
+	}
+}
+
 // Benchmarks
 func BenchmarkLargeOrderPrimes(b *testing.B) {
 	packs := []int{23, 31, 53}

@@ -242,6 +242,27 @@ func TestResponseContentType(t *testing.T) {
 	}
 }
 
+// CalcPacks returns error (empty packs from storage)
+func TestCalculateCalcPacksError(t *testing.T) {
+	s := &mockStorage{packs: []int{}}
+	mux := newMux(newTestHandler(s))
+
+	body := `{"items": 1}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/calculate", bytes.NewBufferString(body))
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+
+	var resp errorResponse
+	json.NewDecoder(w.Body).Decode(&resp)
+	if resp.Error == "" {
+		t.Fatal("expected non-empty error message")
+	}
+}
+
 // Sentinel errors for mock
 var (
 	errTest       = &testError{"storage error"}

@@ -140,6 +140,78 @@ func TestStorageConcurrentAccess(t *testing.T) {
 	wg.Wait()
 }
 
+func TestStorageSetPacksWriteError(t *testing.T) {
+	dir := t.TempDir()
+	fp := filepath.Join(dir, "packs.json")
+	s, err := NewFilePackStorage(fp, []int{100, 200})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Make directory read-only so writeLocked fails
+	os.Chmod(dir, 0o444)
+	t.Cleanup(func() { os.Chmod(dir, 0o755) })
+
+	// Guard for running as root
+	if f, err := os.Create(filepath.Join(dir, "probe")); err == nil {
+		f.Close()
+		t.Skip("running as root, cannot test permission errors")
+	}
+
+	_, err = s.SetPacks([]int{300})
+	if err == nil {
+		t.Fatal("expected error when directory is read-only")
+	}
+}
+
+func TestStorageNewReadError(t *testing.T) {
+	fp := tempFilePath(t)
+	os.WriteFile(fp, []byte(`{"packs":[100]}`), 0o644)
+
+	// Make file unreadable
+	os.Chmod(fp, 0o000)
+	t.Cleanup(func() { os.Chmod(fp, 0o644) })
+
+	// Guard for running as root
+	if _, err := os.ReadFile(fp); err == nil {
+		t.Skip("running as root, cannot test permission errors")
+	}
+
+	_, err := NewFilePackStorage(fp, nil)
+	if err == nil {
+		t.Fatal("expected error for unreadable file")
+	}
+}
+
+func TestStorageNewWriteDefaultsError(t *testing.T) {
+	dir := t.TempDir()
+	// Make directory read-only so file creation fails
+	os.Chmod(dir, 0o444)
+	t.Cleanup(func() { os.Chmod(dir, 0o755) })
+
+	// Guard for running as root
+	fp := filepath.Join(dir, "probe")
+	if f, err := os.Create(fp); err == nil {
+		f.Close()
+		t.Skip("running as root, cannot test permission errors")
+	}
+
+	_, err := NewFilePackStorage(filepath.Join(dir, "packs.json"), []int{100})
+	if err == nil {
+		t.Fatal("expected error when directory is read-only")
+	}
+}
+
+func TestStorageNewInvalidPacksInFile(t *testing.T) {
+	fp := tempFilePath(t)
+	os.WriteFile(fp, []byte(`{"packs":[0,-1]}`), 0o644)
+
+	_, err := NewFilePackStorage(fp, nil)
+	if err == nil {
+		t.Fatal("expected error for invalid packs in file")
+	}
+}
+
 func assertSliceEqual(t *testing.T, expected, got []int) {
 	t.Helper()
 	if len(expected) != len(got) {

@@ -45,25 +45,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	handler := controllers.NewHandler(storage, log)
-	mux := http.NewServeMux()
-	handler.RegisterRoutes(mux)
-
-	// Serve embedded frontend (HTML, CSS, JS)
-	staticFS, err := fs.Sub(static.Files, ".")
-	if err != nil {
-		log.Error("failed to create static sub-fs", "error", err)
-		os.Exit(1)
-	}
-	mux.Handle("GET /", http.FileServer(http.FS(staticFS)))
-
-	srv := &http.Server{
-		Addr:         addr,
-		Handler:      loggingMiddleware(log, mux),
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  60 * time.Second,
-	}
+	srv := buildServer(storage, log, addr)
 
 	// Graceful shutdown
 	done := make(chan struct{})
@@ -88,9 +70,28 @@ func main() {
 		log.Error("server error", "error", err)
 		os.Exit(1)
 	}
-	
+
 	<-done
 	log.Info("server stopped")
+}
+
+// buildServer creates and configures the HTTP server with all routes and middleware.
+func buildServer(storage services.PackStorage, log *slog.Logger, addr string) *http.Server {
+	handler := controllers.NewHandler(storage, log)
+	mux := http.NewServeMux()
+	handler.RegisterRoutes(mux)
+
+	// Serve embedded frontend (HTML, CSS, JS)
+	staticFS, _ := fs.Sub(static.Files, ".")
+	mux.Handle("GET /", http.FileServer(http.FS(staticFS)))
+
+	return &http.Server{
+		Addr:         addr,
+		Handler:      loggingMiddleware(log, mux),
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
 }
 
 // Log all the requests via middleware
