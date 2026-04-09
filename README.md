@@ -2,7 +2,7 @@
 
 This is my attempt to solve [coding challenge](doc/assignment.pdf)
 
-This Readme only has brief description on what is it and how to run it. To see my investigation check [research](doc/RESEARCH.md)
+This Readme only has a brief description on what it is and how to run it. To see my investigation check [research](doc/RESEARCH.md)
 
 # Some screenshots
 
@@ -12,7 +12,7 @@ This Readme only has brief description on what is it and how to run it. To see m
 
 # Limits
 
-I decided to introduce some limits not to overwhelm th server
+I decided to introduce some limits not to overwhelm the server
 
 | Parameter      | Limit                      |
 | -------------- | -------------------------- |
@@ -31,16 +31,16 @@ I decided to introduce some limits not to overwhelm th server
 
 > default port is `8080` and file will be created in this repo at `data` folder
 
-- runs server natively - `go run cmd/server/main.go`
+- runs server natively    - `go run cmd/server/main.go`
 - override default values - `ADDR=:8080 PACK_FILE=data/packs.json go run cmd/server/main.go`
-- unit tests - `go test ./...`
+- unit tests              - `go test ./...`
 
-# Curl commands (if what to test endpoint manually):
+# Curl commands (if want to test endpoint manually):
 
 - Get current packs - `curl -s localhost:8080/api/v1/packs | jq`
-- Set custom packs - `curl -s -X POST localhost:8080/api/v1/packs -d '{"packs": [23, 31, 53]}' | jq`
-- Calculate - `curl -s -X POST localhost:8080/api/v1/calculate -d '{"items": 1}' | jq`
-- Reset packs - `curl -s -X POST localhost:8080/api/v1/packs -d '{"packs": [250, 500, 1000, 2000, 5000]}' | jq`
+- Set custom packs  - `curl -s -X POST localhost:8080/api/v1/packs -d '{"packs": [23, 31, 53]}' | jq`
+- Calculate         - `curl -s -X POST localhost:8080/api/v1/calculate -d '{"items": 1}' | jq`
+- Reset packs       - `curl -s -X POST localhost:8080/api/v1/packs -d '{"packs": [250, 500, 1000, 2000, 5000]}' | jq`
 
 # Finish
 
