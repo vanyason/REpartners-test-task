@@ -31,7 +31,7 @@ Technical Requirements
 
 # Algorithm Design (Bounded DP + Greedy)
 
-Reference: LeetCode 322 — Coin Change()
+At first glance, greedy sounds reasonable. However, it will break at `items=6`, `packs = [5,3]`
 
 Problem is a modified [Coin Change](https://leetcode.com/problems/coin-change/) with two twists:
 - Target is >= amount (can overshoot), not exact
@@ -41,6 +41,8 @@ Problem is a modified [Coin Change](https://leetcode.com/problems/coin-change/) 
 Solution: LeetCode 322 on a small remainder window + greedy for the bulk.
 See also: [NeetCode explanation](https://neetcode.io/solutions/coin-change), [Go implementation](https://reintech.io/blog/coin-change-problem-in-go)
 
+See [algo file](../pkg/services/calculator.go) for details
+
 # Edge cases to cover
 
 - UI (2 sessions) - concurrent pack changes
@@ -48,6 +50,7 @@ See also: [NeetCode explanation](https://neetcode.io/solutions/coin-change), [Go
 - handle 0 packs / duplicates / packs <= 0 / items <= 0 / etc...
 - greedy approach will may not work. Example:
     - items: 6; packs: 5,3. Greedy would return 5:1, 3:1 - answer is 3:2
+- Add some limits to the algo
 - Graceful shutdown
 
 # Design thoughts
@@ -56,7 +59,7 @@ See also: [NeetCode explanation](https://neetcode.io/solutions/coin-change), [Go
 - If packs changed concurrently during UI - show simple warning message
 - packs should survive restart - save in file (RWmutex) (enough for test task)
 
-## API
+# API
 
 - GET `/api/v1/packs `
     - ← `{ "packs": [250, 500, 1000, 2000, 5000] }`
