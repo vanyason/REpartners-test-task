@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 	"pack-calc/pkg/controllers"
 	"pack-calc/pkg/services"
+	"pack-calc/pkg/static"
 )
 
 const (
@@ -46,6 +48,14 @@ func main() {
 	handler := controllers.NewHandler(storage, log)
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
+
+	// Serve embedded frontend (HTML, CSS, JS)
+	staticFS, err := fs.Sub(static.Files, ".")
+	if err != nil {
+		log.Error("failed to create static sub-fs", "error", err)
+		os.Exit(1)
+	}
+	mux.Handle("GET /", http.FileServer(http.FS(staticFS)))
 
 	srv := &http.Server{
 		Addr:         addr,
