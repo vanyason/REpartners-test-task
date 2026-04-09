@@ -1,0 +1,12 @@
+.git
+.gitignore
+.DS_Store
+.claude
+Doc
+data
+bin
+README.md
+Makefile
+Dockerfile
+docker-compose.yml
+.dockerignore
