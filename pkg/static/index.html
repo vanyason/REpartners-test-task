@@ -1,53 +1,51 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pack Calculator</title>
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Pack Calculator</title>
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <div class="container">
+            <h1>Pack Calculator</h1>
+            <p class="subtitle">Configure pack sizes and calculate optimal packing for orders</p>
 
-<div class="container">
-  <h1>Pack Calculator</h1>
-  <p class="subtitle">Configure pack sizes and calculate optimal packing for orders</p>
+            <!-- Pack Sizes Management -->
+            <div class="card">
+                <h2><span class="icon">&#x1F4E6;</span> Pack Sizes</h2>
+                <div class="pack-badges" id="packBadges"></div>
+                <div class="pack-inputs" id="packInputs"></div>
+                <div class="btn-row">
+                    <button class="btn btn-secondary" id="addPackBtn" onclick="addPackInput()">+ Add Size</button>
+                    <button class="btn btn-primary" onclick="savePacks()">Save Pack Sizes</button>
+                </div>
+                <div class="error-msg" id="packError"></div>
+            </div>
 
-  <!-- Pack Sizes Management -->
-  <div class="card">
-    <h2><span class="icon">&#x1F4E6;</span> Pack Sizes</h2>
-    <div class="pack-badges" id="packBadges"></div>
-    <div class="pack-inputs" id="packInputs"></div>
-    <div class="btn-row">
-      <button class="btn btn-secondary" onclick="addPackInput()">+ Add Size</button>
-      <button class="btn btn-primary" onclick="savePacks()">Save Pack Sizes</button>
-    </div>
-    <div class="error-msg" id="packError"></div>
-  </div>
+            <!-- Calculate Order -->
+            <div class="card">
+                <h2><span class="icon">&#x1F4CB;</span> Calculate Order</h2>
+                <div class="warning-banner" id="warningBanner" onclick="refreshPacks()">
+                    &#x26A0; Pack sizes were changed by another session. Click to refresh.
+                </div>
+                <div class="calc-row">
+                    <label for="itemsInput">Items:</label>
+                    <input type="number" id="itemsInput" min="0" max="1000000000" placeholder="e.g. 501" />
+                    <button class="btn btn-primary" id="calcBtn" onclick="calculate()">Calculate</button>
+                </div>
+                <div class="spinner-overlay" id="spinnerOverlay">
+                    <div class="spinner"></div>
+                    <span class="spinner-text">Calculating...</span>
+                </div>
+                <div class="error-msg" id="calcError"></div>
+                <div class="result-section" id="resultSection">
+                    <div class="result-summary" id="resultSummary"></div>
+                    <div class="pack-vis" id="packVis"></div>
+                </div>
+            </div>
+        </div>
 
-  <!-- Calculate Order -->
-  <div class="card">
-    <h2><span class="icon">&#x1F4CB;</span> Calculate Order</h2>
-    <div class="warning-banner" id="warningBanner" onclick="refreshPacks()">
-      &#x26A0; Pack sizes were changed by another session. Click to refresh.
-    </div>
-    <div class="calc-row">
-      <label for="itemsInput">Items:</label>
-      <input type="number" id="itemsInput" min="0" placeholder="e.g. 501">
-      <button class="btn btn-primary" id="calcBtn" onclick="calculate()">Calculate</button>
-    </div>
-    <div class="spinner-overlay" id="spinnerOverlay">
-      <div class="spinner"></div>
-      <span class="spinner-text">Calculating...</span>
-    </div>
-    <div class="error-msg" id="calcError"></div>
-    <div class="result-section" id="resultSection">
-      <div class="result-summary" id="resultSummary"></div>
-      <div class="pack-vis" id="packVis"></div>
-    </div>
-  </div>
-</div>
-
-<script src="app.js"></script>
-
-</body>
+        <script src="app.js"></script>
+    </body>
 </html>

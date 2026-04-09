@@ -75,7 +75,7 @@ func main() {
 	log.Info("server stopped")
 }
 
-// buildServer creates and configures the HTTP server with all routes and middleware.
+// buildServer creates and configures the HTTP server with all routes and middleware
 func buildServer(storage services.PackStorage, log *slog.Logger, addr string) *http.Server {
 	handler := controllers.NewHandler(storage, log)
 	mux := http.NewServeMux()

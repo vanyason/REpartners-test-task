@@ -3,10 +3,14 @@ package controllers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"pack-calc/pkg/services"
 )
 
 // Mock storage
@@ -260,6 +264,114 @@ func TestCalculateCalcPacksError(t *testing.T) {
 	json.NewDecoder(w.Body).Decode(&resp)
 	if resp.Error == "" {
 		t.Fatal("expected non-empty error message")
+	}
+}
+
+// Items exceeds upper bound
+func TestCalculateItemsTooLarge(t *testing.T) {
+	s := &mockStorage{packs: []int{250}}
+	mux := newMux(newTestHandler(s))
+
+	body := `{"items": 9999999999}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/calculate", bytes.NewBufferString(body))
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+	var resp errorResponse
+	json.NewDecoder(w.Body).Decode(&resp)
+	if resp.Error == "" {
+		t.Fatal("expected non-empty error message for items too large")
+	}
+}
+
+// Request body too large
+func TestSetPacksBodyTooLarge(t *testing.T) {
+	s := &mockStorage{packs: []int{250}}
+	mux := newMux(newTestHandler(s))
+
+	// Create a body larger than 1 MB
+	bigBody := `{"packs": [` + strings.Repeat("1,", 600000) + `1]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/packs", bytes.NewBufferString(bigBody))
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for oversized body, got %d", w.Code)
+	}
+}
+
+func TestCalculateBodyTooLarge(t *testing.T) {
+	s := &mockStorage{packs: []int{250}}
+	mux := newMux(newTestHandler(s))
+
+	bigBody := `{"items": 1, "extra": "` + strings.Repeat("x", 2*1024*1024) + `"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/calculate", bytes.NewBufferString(bigBody))
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for oversized body, got %d", w.Code)
+	}
+}
+
+// Too many packs (rejected by storage)
+func TestSetPacksTooMany(t *testing.T) {
+	s := &mockStorage{packs: []int{250}, setErr: &testError{"too many pack sizes: 21 (max 20)"}}
+	mux := newMux(newTestHandler(s))
+
+	body := `{"packs": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/packs", bytes.NewBufferString(body))
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+	var resp errorResponse
+	json.NewDecoder(w.Body).Decode(&resp)
+	if !strings.Contains(resp.Error, "too many") {
+		t.Fatalf("expected 'too many' in error, got %q", resp.Error)
+	}
+}
+
+// Pack size too large (rejected by storage)
+func TestSetPacksSizeTooLarge(t *testing.T) {
+	s := &mockStorage{packs: []int{250}, setErr: &testError{"pack size 2000000 exceeds maximum 1000000"}}
+	mux := newMux(newTestHandler(s))
+
+	body := `{"packs": [2000000]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/packs", bytes.NewBufferString(body))
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+	var resp errorResponse
+	json.NewDecoder(w.Body).Decode(&resp)
+	if !strings.Contains(resp.Error, "exceeds maximum") {
+		t.Fatalf("expected 'exceeds maximum' in error, got %q", resp.Error)
+	}
+}
+
+// SetPacks internal (IO) error returns 500, not 400
+func TestSetPacksInternalErrorReturns500(t *testing.T) {
+	s := &mockStorage{
+		packs:  []int{250},
+		setErr: &services.InternalError{Err: fmt.Errorf("persist packs: permission denied")},
+	}
+	mux := newMux(newTestHandler(s))
+
+	body := `{"packs": [100]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/packs", bytes.NewBufferString(body))
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500 for internal error, got %d", w.Code)
 	}
 }
 

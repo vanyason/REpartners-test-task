@@ -1,8 +1,10 @@
 package services
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -164,6 +166,57 @@ func TestStorageSetPacksWriteError(t *testing.T) {
 	}
 }
 
+func TestStorageSetPacksRollbackOnWriteError(t *testing.T) {
+	dir := t.TempDir()
+	fp := filepath.Join(dir, "packs.json")
+	s, err := NewFilePackStorage(fp, []int{100, 200})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Make directory read-only so writeLocked fails
+	os.Chmod(dir, 0o444)
+	t.Cleanup(func() { os.Chmod(dir, 0o755) })
+
+	// Guard for running as root
+	if f, err := os.Create(filepath.Join(dir, "probe")); err == nil {
+		f.Close()
+		t.Skip("running as root, cannot test permission errors")
+	}
+
+	_, err = s.SetPacks([]int{300, 400})
+	if err == nil {
+		t.Fatal("expected error when directory is read-only")
+	}
+
+	// Verify in-memory state was rolled back to original packs
+	packs, _ := s.GetPacks()
+	assertSliceEqual(t, []int{200, 100}, packs)
+}
+
+func TestStorageSetPacksWriteErrorIsInternal(t *testing.T) {
+	dir := t.TempDir()
+	fp := filepath.Join(dir, "packs.json")
+	s, err := NewFilePackStorage(fp, []int{100})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	os.Chmod(dir, 0o444)
+	t.Cleanup(func() { os.Chmod(dir, 0o755) })
+
+	if f, err := os.Create(filepath.Join(dir, "probe")); err == nil {
+		f.Close()
+		t.Skip("running as root, cannot test permission errors")
+	}
+
+	_, err = s.SetPacks([]int{300})
+	var ie *InternalError
+	if !errors.As(err, &ie) {
+		t.Fatalf("expected InternalError, got %T: %v", err, err)
+	}
+}
+
 func TestStorageNewReadError(t *testing.T) {
 	fp := tempFilePath(t)
 	os.WriteFile(fp, []byte(`{"packs":[100]}`), 0o644)
@@ -209,6 +262,54 @@ func TestStorageNewInvalidPacksInFile(t *testing.T) {
 	_, err := NewFilePackStorage(fp, nil)
 	if err == nil {
 		t.Fatal("expected error for invalid packs in file")
+	}
+}
+
+func TestStorageSetPacksTooMany(t *testing.T) {
+	fp := tempFilePath(t)
+	s, _ := NewFilePackStorage(fp, []int{100})
+
+	packs := make([]int, MaxPackCount+1)
+	for i := range packs {
+		packs[i] = i + 1
+	}
+	_, err := s.SetPacks(packs)
+	if err == nil {
+		t.Fatal("expected error for too many packs")
+	}
+	if !strings.Contains(err.Error(), "too many pack sizes") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestStorageSetPacksSizeTooLarge(t *testing.T) {
+	fp := tempFilePath(t)
+	s, _ := NewFilePackStorage(fp, []int{100})
+
+	_, err := s.SetPacks([]int{MaxPackSize + 1})
+	if err == nil {
+		t.Fatal("expected error for pack size too large")
+	}
+	if !strings.Contains(err.Error(), "exceeds maximum") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestStorageSetPacksAtExactLimits(t *testing.T) {
+	fp := tempFilePath(t)
+	s, _ := NewFilePackStorage(fp, []int{100})
+
+	packs := make([]int, MaxPackCount)
+	for i := range packs {
+		packs[i] = i + 1
+	}
+	packs[0] = MaxPackSize // use max value for first pack
+	got, err := s.SetPacks(packs)
+	if err != nil {
+		t.Fatalf("expected success at exact limits, got: %v", err)
+	}
+	if len(got) != MaxPackCount {
+		t.Fatalf("expected %d packs, got %d", MaxPackCount, len(got))
 	}
 }
 

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -78,9 +79,11 @@ func (s *FilePackStorage) SetPacks(packs []int) ([]int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	old := s.packs
 	s.packs = cleaned
 	if err := s.writeLocked(); err != nil {
-		return nil, fmt.Errorf("persist packs: %w", err)
+		s.packs = old // rollback to keep memory/disk consistent
+		return nil, &InternalError{Err: fmt.Errorf("persist packs: %w", err)}
 	}
 	return slices.Clone(s.packs), nil
 }
@@ -110,12 +113,19 @@ func validateAndClean(packs []int) ([]int, error) {
 		if p <= 0 {
 			return nil, fmt.Errorf("pack size must be positive, got %d", p)
 		}
+		if p > MaxPackSize {
+			return nil, fmt.Errorf("pack size %d exceeds maximum %d", p, MaxPackSize)
+		}
 		if _, dup := seen[p]; !dup {
 			seen[p] = struct{}{}
 			cleaned = append(cleaned, p)
 		}
 	}
 
-	slices.SortFunc(cleaned, func(a, b int) int { return b - a }) // descending
+	if len(cleaned) > MaxPackCount {
+		return nil, fmt.Errorf("too many pack sizes: %d (max %d)", len(cleaned), MaxPackCount)
+	}
+
+	slices.SortFunc(cleaned, func(a, b int) int { return cmp.Compare(b, a) }) // descending
 	return cleaned, nil
 }

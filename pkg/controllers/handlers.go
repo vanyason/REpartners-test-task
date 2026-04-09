@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -25,6 +26,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/packs", h.SetPacks)
 	mux.HandleFunc("POST /api/v1/calculate", h.Calculate)
 }
+
+const maxBodySize = 1 << 20 // maxBodySize limits request body to 1 MB to prevent resource exhaustion
 
 // Request / Response types
 type packsResponse struct {
@@ -60,6 +63,7 @@ func (h *Handler) GetPacks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) SetPacks(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
 	var req setPacksRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid JSON body"})
@@ -68,8 +72,13 @@ func (h *Handler) SetPacks(w http.ResponseWriter, r *http.Request) {
 
 	saved, err := h.storage.SetPacks(req.Packs)
 	if err != nil {
-		h.log.Warn("set packs rejected", "error", err)
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		var ie *services.InternalError
+		if errors.As(err, &ie) {
+			h.serverError(w, r, "set packs", err)
+		} else {
+			h.log.Warn("set packs rejected", "error", err)
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		}
 		return
 	}
 
@@ -77,6 +86,7 @@ func (h *Handler) SetPacks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Calculate(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
 	var req calculateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "invalid JSON body"})
@@ -85,6 +95,12 @@ func (h *Handler) Calculate(w http.ResponseWriter, r *http.Request) {
 
 	if req.Items < 0 {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "items must be non-negative"})
+		return
+	}
+	if req.Items > services.MaxItems {
+		writeJSON(w, http.StatusBadRequest, errorResponse{
+			Error: fmt.Sprintf("items must be at most %d", services.MaxItems),
+		})
 		return
 	}
 
@@ -96,8 +112,13 @@ func (h *Handler) Calculate(w http.ResponseWriter, r *http.Request) {
 
 	result, err := services.CalcPacks(req.Items, packs)
 	if err != nil {
-		h.log.Warn("calculation failed", "items", req.Items, "error", err)
-		writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		var ie *services.InternalError
+		if errors.As(err, &ie) {
+			h.serverError(w, r, "calculation", err)
+		} else {
+			h.log.Warn("calculation failed", "items", req.Items, "error", err)
+			writeJSON(w, http.StatusBadRequest, errorResponse{Error: err.Error()})
+		}
 		return
 	}
 
@@ -124,5 +145,7 @@ func (h *Handler) serverError(w http.ResponseWriter, r *http.Request, context st
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(v)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		slog.Error("failed to encode JSON response", "error", err)
+	}
 }

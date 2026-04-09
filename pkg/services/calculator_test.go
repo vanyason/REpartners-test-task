@@ -330,6 +330,49 @@ func TestGCD(t *testing.T) {
 	}
 }
 
+// DP table size cap — large coprime packs that would overflow without the cap
+func TestDPSizeCapPreventsPanic(t *testing.T) {
+	// Two large coprimes: 99991 * 99997 would overflow int32 and allocate
+	// huge memory without the maxDPSize cap
+	packs := []int{99991, 99997}
+	got, err := CalcPacks(200000, packs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Should return a valid result (at least 200000 items)
+	total := 0
+	for size, qty := range got {
+		total += size * qty
+	}
+	if total < 200000 {
+		t.Fatalf("expected at least 200000 items, got %d", total)
+	}
+}
+
+// Negative need guard — should not panic when qGreedy overshoots
+func TestNegativeNeedGuard(t *testing.T) {
+	packs := []int{7, 13}
+	got, err := CalcPacks(1, packs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	total := 0
+	for size, qty := range got {
+		total += size * qty
+	}
+	if total < 1 {
+		t.Fatalf("expected at least 1 item, got %d", total)
+	}
+}
+
+// CalcPacks rejects pack sizes exceeding MaxPackSize
+func TestCalcPacksRejectsOversizedPack(t *testing.T) {
+	_, err := CalcPacks(100, []int{MaxPackSize + 1})
+	if err == nil {
+		t.Fatal("expected error for pack size exceeding MaxPackSize")
+	}
+}
+
 // Benchmarks
 func BenchmarkLargeOrderPrimes(b *testing.B) {
 	packs := []int{23, 31, 53}
